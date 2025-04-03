@@ -1,1 +1,524 @@
-hello.
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주일학교 성경 진도 지도</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            position: relative;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #map {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            border: 1px solid #ccc;
+            display: none; /* 처음엔 숨김 */
+        }
+        .book {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background-size: cover;
+            background-position: center;
+        }
+        .book.active {
+            display: block;
+        }
+        .chapter-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #ffd700;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            font-size: 10px;
+            color: #000;
+            z-index: 5;
+        }
+        .path-line {
+            position: absolute;
+            border: 2px dashed #ff4500;
+            z-index: 4;
+        }
+        .student-marker {
+            position: absolute;
+            width: 40px;
+            height: 20px;
+            background-color: #3498db;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            line-height: 20px;
+            z-index: 10;
+        }
+        .group-marker {
+            position: absolute;
+            width: 40px;
+            height: 20px;
+            background-color: #e74c3c;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            line-height: 20px;
+            z-index: 10;
+            cursor: pointer; /* 클릭 가능 표시 */
+        }
+        #tooltip {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 5px;
+            display: none;
+            z-index: 20;
+            font-size: 12px;
+            max-width: 150px;
+            max-height: 150px;
+            overflow-y: auto;
+            text-align: left;
+        }
+        #tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: #fff transparent transparent transparent;
+        }
+        #controls {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            text-align: center;
+            display: none; /* 처음엔 숨김 */
+        }
+        #controls label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        #controls select, #controls input {
+            padding: 5px;
+            margin-right: 10px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+        #controls button {
+            padding: 5px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #controls button:hover {
+            background-color: #2980b9;
+        }
+        .auth-buttons {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            text-align: right;
+        }
+        .auth-buttons button {
+            padding: 8px 15px;
+            margin-left: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .auth-buttons button:hover {
+            background-color: #0056b3;
+        }
+        #welcomeMessage {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #333;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            position: relative;
+            margin: 15% auto;
+            padding: 20px;
+            width: 400px;
+            background-color: white;
+            border-radius: 5px;
+            z-index: 1001;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .modal-content button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .modal-content button:hover {
+            background-color: #0056b3;
+        }
+        #loginMessage {
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>주일학교 성경 진도 지도</h1>
+    <div class="auth-buttons">
+        <button id="loginButton">로그인</button>
+        <div id="welcomeMessage"></div>
+    </div>
+    <div id="controls">
+        <label for="bookSelect">성경지도: </label>
+        <select id="bookSelect">
+            <option value="마가복음" selected>마가복음</option>
+            <option value="요한복음">요한복음</option> <!-- 추가된 지도 반영 -->
+        </select>
+        <label for="chapter">장 입력: </label>
+        <input type="number" id="chapter" min="1" placeholder="1-16">
+        <button id="updateButton">위치 업데이트</button>
+    </div>
+    <div id="map">
+        <div id="tooltip"></div>
+    </div>
+
+    <!-- 로그인 모달 -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h2>로그인</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginName">아이디 (이메일)</label>
+                    <input type="text" id="loginName" required placeholder="예: student1@churchfake.com">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">비밀번호</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit">로그인</button>
+            </form>
+            <div id="loginMessage"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+        import { books } from './books.js'; // books.js에서 데이터 가져오기
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB8yjBSW6UZX_mzZymXqIHgMxC4xEXx3Bo",
+            authDomain: "bible-reading-tour-default-rtdb.asia-southeast1.firebasedatabase.app",
+            databaseURL: "https://bible-reading-tour-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "bible-reading-tour",
+            storageBucket: "bible-reading-tour.firebasestorage.app",
+            appId: "1:261577979735:web:114c389ea16a380917f012",
+            measurementId: "G-WSHBQWY49Z"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const auth = getAuth(app);
+
+        const map = document.getElementById("map");
+        let currentUser = null;
+        const loginButton = document.getElementById("loginButton");
+        const welcomeMessage = document.getElementById("welcomeMessage");
+        const bookSelect = document.getElementById("bookSelect");
+        const chapterInput = document.getElementById("chapter");
+
+        // 로그인 상태 체크
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user.uid;
+                loginButton.textContent = "로그아웃";
+                welcomeMessage.textContent = `${user.email.split('@')[0]}님 환영합니다.`;
+                document.getElementById("map").style.display = "block";
+                document.getElementById("controls").style.display = "block";
+                displayBook(bookSelect.value); // 현재 선택된 책 표시
+                loadAllStudents(bookSelect.value);
+            } else {
+                currentUser = null;
+                loginButton.textContent = "로그인";
+                welcomeMessage.textContent = "";
+                document.getElementById("map").style.display = "none";
+                document.getElementById("controls").style.display = "none";
+                document.getElementById("loginModal").style.display = "block";
+            }
+        });
+
+        // 책 변경 시 장 입력 범위 동적 업데이트
+        function updateChapterRange() {
+            const selectedBook = bookSelect.value;
+            const maxChapters = books[selectedBook].chapters;
+            chapterInput.max = maxChapters;
+            chapterInput.placeholder = `1-${maxChapters}`;
+        }
+
+        // 책 표시
+        function displayBook(bookName) {
+            const bookDiv = document.getElementById("bookDiv");
+            if (bookDiv) bookDiv.remove();
+
+            const newBookDiv = document.createElement("div");
+            newBookDiv.className = "book active";
+            newBookDiv.id = "bookDiv";
+            newBookDiv.style.backgroundImage = `url(${books[bookName].image})`;
+            map.appendChild(newBookDiv);
+
+            for (let i = 0; i < books[bookName].path.length - 1; i++) {
+                const start = books[bookName].path[i];
+                const end = books[bookName].path[i + 1];
+                const pathLine = document.createElement("div");
+                pathLine.className = "path-line";
+                const dx = end.x - start.x;
+                const dy = end.y - start.y;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                pathLine.style.width = `${length}px`;
+                pathLine.style.transform = `rotate(${angle}deg)`;
+                pathLine.style.left = `${start.x}px`;
+                pathLine.style.top = `${start.y}px`;
+                pathLine.style.transformOrigin = "0 0";
+                map.appendChild(pathLine);
+            }
+
+            books[bookName].path.forEach(point => {
+                const marker = document.createElement("div");
+                marker.className = "chapter-marker";
+                marker.textContent = point.chapter;
+                marker.style.left = `${point.x - 10}px`;
+                marker.style.top = `${point.y - 10}px`;
+                map.appendChild(marker);
+            });
+        }
+
+        // 학생 마커 업데이트
+        function updateStudentMarker(book, chapter, players) {
+            const bookData = books[book];
+            const position = bookData.path.find(p => p.chapter === chapter) || bookData.path[0];
+            const baseY = position.y - 25;
+
+            if (players.length <= 3) {
+                players.forEach((player, index) => {
+                    const markerId = `marker-${book}-${chapter}-${player}`;
+                    let marker = document.getElementById(markerId);
+
+                    if (marker) marker.remove();
+
+                    marker = document.createElement("div");
+                    marker.id = markerId;
+                    marker.className = "student-marker";
+                    marker.textContent = player;
+                    marker.style.left = `${position.x - 20}px`;
+                    marker.style.top = `${baseY - (index * 25)}px`;
+                    map.appendChild(marker);
+                });
+            } else {
+                const markerId = `group-${book}-${chapter}`;
+                let marker = document.getElementById(markerId);
+
+                if (marker) marker.remove();
+
+                marker = document.createElement("div");
+                marker.id = markerId;
+                marker.className = "group-marker";
+                marker.textContent = `${players.length}명`;
+                marker.style.left = `${position.x - 20}px`;
+                marker.style.top = `${baseY}px`;
+                map.appendChild(marker);
+
+                let isTooltipVisible = false;
+                marker.addEventListener("click", () => {
+                    const tooltip = document.getElementById("tooltip");
+                    if (!isTooltipVisible) {
+                        tooltip.innerHTML = players.map(name => `<div>${name}</div>`).join("");
+                        const markerLeft = position.x - 20;
+                        const markerTop = baseY;
+                        const markerWidth = 40;
+                        const tooltipWidth = tooltip.offsetWidth;
+                        const tooltipHeight = tooltip.offsetHeight;
+
+                        let tooltipLeft = markerLeft + (markerWidth / 2) - (tooltipWidth / 2);
+                        let tooltipTop = markerTop - tooltipHeight - 5;
+
+                        const mapWidth = map.offsetWidth;
+                        const mapHeight = map.offsetHeight;
+
+                        if (tooltipLeft < 0) tooltipLeft = 0;
+                        if (tooltipLeft + tooltipWidth > mapWidth) tooltipLeft = mapWidth - tooltipWidth;
+                        if (tooltipTop < 0) tooltipTop = 0;
+                        if (tooltipTop + tooltipHeight > mapHeight) tooltipTop = markerTop + 20 + 5;
+
+                        tooltip.style.left = `${tooltipLeft}px`;
+                        tooltip.style.top = `${tooltipTop}px`;
+                        tooltip.style.display = "block";
+                        isTooltipVisible = true;
+                    } else {
+                        tooltip.style.display = "none";
+                        isTooltipVisible = false;
+                    }
+                });
+            }
+        }
+
+        // 모든 학생 위치 로드
+        async function loadAllStudents(currentBook) {
+            const studentsRef = ref(database, "students");
+            const snapshot = await get(studentsRef);
+            const students = snapshot.val();
+
+            document.querySelectorAll(".student-marker, .group-marker").forEach(marker => marker.remove());
+
+            if (students) {
+                const groupedByPosition = {};
+                Object.keys(students).forEach(studentUid => {
+                    const studentData = students[studentUid];
+                    if (studentData.book === currentBook) {
+                        const key = `${studentData.book}-${studentData.chapter}`;
+                        if (!groupedByPosition[key]) {
+                            groupedByPosition[key] = [];
+                        }
+                        const studentName = studentData.email ? studentData.email.split('@')[0] : studentUid;
+                        groupedByPosition[key].push(studentName);
+                    }
+                });
+
+                Object.keys(groupedByPosition).forEach(key => {
+                    const [book, chapter] = key.split("-");
+                    updateStudentMarker(book, parseInt(chapter), groupedByPosition[key]);
+                });
+            }
+        }
+
+        // 위치 업데이트
+        function updatePosition() {
+            if (!currentUser) {
+                alert("로그인 후 위치를 업데이트할 수 있습니다!");
+                return;
+            }
+            const selectedBook = bookSelect.value;
+            const chapter = parseInt(chapterInput.value);
+            const maxChapters = books[selectedBook].chapters;
+            if (chapter > 0 && chapter <= maxChapters) {
+                const userEmail = auth.currentUser.email;
+                set(ref(database, `students/${currentUser}`), {
+                    book: selectedBook,
+                    chapter: chapter,
+                    email: userEmail
+                }).then(() => {
+                    displayBook(selectedBook);
+                    loadAllStudents(selectedBook);
+                }).catch((error) => {
+                    console.error("업데이트 실패:", error);
+                });
+            } else {
+                alert(`유효한 장 번호를 입력하세요! (1~${maxChapters})`);
+            }
+        }
+
+        // 로그인 처리
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("loginName").value;
+            const password = document.getElementById("loginPassword").value;
+            const messageDiv = document.getElementById("loginMessage");
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                currentUser = userCredential.user.uid;
+                messageDiv.style.color = "green";
+                messageDiv.textContent = "";
+                document.getElementById("loginModal").style.display = "none";
+            } catch (error) {
+                messageDiv.style.color = "red";
+                messageDiv.textContent = "로그인 실패: " + error.message;
+            }
+        });
+
+        // 로그아웃 처리
+        loginButton.addEventListener("click", async () => {
+            if (currentUser) {
+                await signOut(auth);
+                currentUser = null;
+                loginButton.textContent = "로그인";
+                welcomeMessage.textContent = "";
+                document.getElementById("map").style.display = "none";
+                document.getElementById("controls").style.display = "none";
+                document.getElementById("loginMessage").textContent = "";
+                alert("로그아웃 되었습니다.");
+            } else {
+                const loginModal = document.getElementById("loginModal");
+                const loginMessage = document.getElementById("loginMessage");
+                if (loginModal) {
+                    loginModal.style.display = "block";
+                    if (loginMessage) loginMessage.textContent = "";
+                }
+            }
+        });
+
+        // 모달 닫기
+        window.addEventListener("click", (e) => {
+            if (e.target.className === "modal") {
+                e.target.style.display = "none";
+            }
+        });
+
+        // 이벤트 리스너
+        document.getElementById("updateButton").addEventListener("click", updatePosition);
+        bookSelect.addEventListener("change", () => {
+            const selectedBook = bookSelect.value;
+            updateChapterRange();
+            displayBook(selectedBook);
+            loadAllStudents(selectedBook);
+        });
+
+        // 초기화
+        async function init() {
+            updateChapterRange();
+        }
+        init();
+    </script>
+</body>
+</html>
