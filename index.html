@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주일학교 성경 진도 지도</title>
+    <title>천안중부 주일학교 성경 투어</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -519,6 +519,10 @@
             updateChapterRange();
         }
         init();
+        document.addEventListener('contextmenu', function(event) {
+            event.preventDefault();
+            alert('우클릭은 사용할 수 없습니다!'); // 사용자에게 메시지 표시 (선택 사항)
+        });
     </script>
 </body>
 </html>
