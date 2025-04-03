@@ -247,6 +247,7 @@
             background-color: #fff;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: none; /* 추가: 초기 상태를 숨김으로 설정 */
         }
         #updateLog {
             order: 1;
@@ -411,6 +412,8 @@
                 welcomeMessage.textContent = `${user.email.split('@')[0]}님 환영합니다.`;
                 document.getElementById("map").style.display = "block";
                 document.getElementById("controls").style.display = "block";
+                updateLog.style.display = "block"; // 로그인 시 표시
+                cheerSection.style.display = "block"; // 로그인 시 표시
                 changePasswordButton.style.display = "inline-block"; // 로그인 시 표시
                 displayBook(bookSelect.value);
                 loadAllStudents(bookSelect.value);
@@ -422,6 +425,8 @@
                 welcomeMessage.textContent = "";
                 document.getElementById("map").style.display = "none";
                 document.getElementById("controls").style.display = "none";
+                updateLog.style.display = "none"; // 로그아웃 시 숨김
+                cheerSection.style.display = "none"; // 로그아웃 시 숨김
                 changePasswordButton.style.display = "none"; // 로그아웃 시 숨김
                 document.getElementById("loginModal").style.display = "block";
             }
