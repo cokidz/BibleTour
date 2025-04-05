@@ -25,9 +25,7 @@
             display: flex;
             gap: 20px;
             justify-content: center;
-            align-items: flex
-
--start;
+            align-items: flex-start;
         }
         #map {
             width: 800px;
@@ -58,7 +56,7 @@
             position: absolute;
             width: 24px;
             height: 24px;
-            background-color: #16a085;
+            background-color: #2ecc71;
             border-radius: 50%;
             text-align: center;
             line-height: 24px;
@@ -67,6 +65,7 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             z-index: 5;
             transition: transform 0.2s;
+            cursor: pointer;
         }
         .chapter-marker:hover {
             transform: scale(1.2);
@@ -247,7 +246,7 @@
             background-color: #fff;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            display: none; /* 추가: 초기 상태를 숨김으로 설정 */
+            display: none;
         }
         #updateLog {
             order: 1;
@@ -307,13 +306,25 @@
         #cheerSubmit:hover {
             background-color: #c0392b;
         }
+        .verse-display {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            font-size: 16px;
+            color: #2c3e50;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <h1>천안중부 주일학교 성경맵 투어</h1>
     <div class="auth-buttons">
         <button id="loginButton">로그인</button>
-        <button id="changePasswordButton" style="display: none;">비밀번호 변경</button> <!-- 로그인 후 표시 -->
+        <button id="changePasswordButton" style="display: none;">비밀번호 변경</button>
         <div id="welcomeMessage"></div>
     </div>
     <div id="changePasswordModal" class="modal">
@@ -337,7 +348,8 @@
     <div id="controls">
         <label for="bookSelect">성경지도: </label>
         <select id="bookSelect">
-            <option value="마가복음" selected>마가복음</option>
+            <option value="마태복음" selected>마태복음</option>
+            <option value="마가복음">마가복음</option>
             <option value="요한복음" hidden>요한복음</option>
         </select>
         <label for="chapter">장 입력: </label>
@@ -359,6 +371,7 @@
             <button id="cheerSubmit">보내기</button>
         </div>
     </div>
+    <div id="verseDisplay" class="verse-display"></div>
 
     <div id="loginModal" class="modal">
         <div class="modal-content">
@@ -381,7 +394,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
         import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";        import { books } from './books.js';
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+        import { books } from './books.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyB8yjBSW6UZX_mzZymXqIHgMxC4xEXx3Bo",
@@ -403,6 +417,8 @@
         const welcomeMessage = document.getElementById("welcomeMessage");
         const bookSelect = document.getElementById("bookSelect");
         const chapterInput = document.getElementById("chapter");
+        const updateLog = document.getElementById("updateLog");
+        const cheerSection = document.getElementById("cheerSection");
 
         onAuthStateChanged(auth, (user) => {
             const changePasswordButton = document.getElementById("changePasswordButton");
@@ -412,9 +428,9 @@
                 welcomeMessage.textContent = `${user.email.split('@')[0]}님 환영합니다.`;
                 document.getElementById("map").style.display = "block";
                 document.getElementById("controls").style.display = "block";
-                updateLog.style.display = "block"; // 로그인 시 표시
-                cheerSection.style.display = "block"; // 로그인 시 표시
-                changePasswordButton.style.display = "inline-block"; // 로그인 시 표시
+                updateLog.style.display = "block";
+                cheerSection.style.display = "block";
+                changePasswordButton.style.display = "inline-block";
                 displayBook(bookSelect.value);
                 loadAllStudents(bookSelect.value);
                 loadUpdateLog();
@@ -425,54 +441,47 @@
                 welcomeMessage.textContent = "";
                 document.getElementById("map").style.display = "none";
                 document.getElementById("controls").style.display = "none";
-                updateLog.style.display = "none"; // 로그아웃 시 숨김
-                cheerSection.style.display = "none"; // 로그아웃 시 숨김
-                changePasswordButton.style.display = "none"; // 로그아웃 시 숨김
+                updateLog.style.display = "none";
+                cheerSection.style.display = "none";
+                changePasswordButton.style.display = "none";
                 document.getElementById("loginModal").style.display = "block";
             }
         });
-// 비밀번호 변경 버튼 이벤트
-document.getElementById("changePasswordButton").addEventListener("click", () => {
-    document.getElementById("changePasswordModal").style.display = "block";
-});
 
-// 비밀번호 변경 폼 제출 이벤트
-document.getElementById("changePasswordForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const currentPassword = document.getElementById("currentPassword").value;
-    const newPassword = document.getElementById("newPassword").value;
-    const messageDiv = document.getElementById("changePasswordMessage");
-    const user = auth.currentUser;
+        document.getElementById("changePasswordButton").addEventListener("click", () => {
+            document.getElementById("changePasswordModal").style.display = "block";
+        });
 
-    try {
-        // 현재 비밀번호로 재인증
-        const credential = EmailAuthProvider.credential(user.email, currentPassword);
-        await reauthenticateWithCredential(user, credential);
+        document.getElementById("changePasswordForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const currentPassword = document.getElementById("currentPassword").value;
+            const newPassword = document.getElementById("newPassword").value;
+            const messageDiv = document.getElementById("changePasswordMessage");
+            const user = auth.currentUser;
 
-        // 새 비밀번호로 업데이트
-        await updatePassword(user, newPassword);
-        messageDiv.style.color = "green";
-        messageDiv.textContent = "비밀번호가 성공적으로 변경되었습니다.";
-        setTimeout(() => {
-            document.getElementById("changePasswordModal").style.display = "none";
-            messageDiv.textContent = "";
-        }, 2000);
-    } catch (error) {
-        messageDiv.style.color = "red";
-        messageDiv.textContent = "변경 실패: " + error.message;
-    }
-});
+            try {
+                const credential = EmailAuthProvider.credential(user.email, currentPassword);
+                await reauthenticateWithCredential(user, credential);
+                await updatePassword(user, newPassword);
+                messageDiv.style.color = "green";
+                messageDiv.textContent = "비밀번호가 성공적으로 변경되었습니다.";
+                setTimeout(() => {
+                    document.getElementById("changePasswordModal").style.display = "none";
+                    messageDiv.textContent = "";
+                }, 2000);
+            } catch (error) {
+                messageDiv.style.color = "red";
+                messageDiv.textContent = "변경 실패: " + error.message;
+            }
+        });
 
-// 모달 닫기 이벤트 (기존 코드에 추가)
-window.addEventListener("click", (e) => {
-    if (e.target.className === "modal") {
-        e.target.style.display = "none";
-        document.getElementById("changePasswordMessage").textContent = ""; // 메시지 초기화
-    }
-});
+        window.addEventListener("click", (e) => {
+            if (e.target.className === "modal") {
+                e.target.style.display = "none";
+                document.getElementById("changePasswordMessage").textContent = "";
+            }
+        });
 
-
-        
         function updateChapterRange() {
             const selectedBook = bookSelect.value;
             const maxChapters = books[selectedBook].chapters;
@@ -483,6 +492,10 @@ window.addEventListener("click", (e) => {
         function displayBook(bookName) {
             const bookDiv = document.getElementById("bookDiv");
             if (bookDiv) bookDiv.remove();
+
+            // 기존 경로와 마커 제거
+            document.querySelectorAll(".path-line").forEach(line => line.remove());
+            document.querySelectorAll(".chapter-marker").forEach(marker => marker.remove());
 
             const newBookDiv = document.createElement("div");
             newBookDiv.className = "book active";
@@ -510,6 +523,9 @@ window.addEventListener("click", (e) => {
                 map.appendChild(pathLine);
             }
 
+            const verseDisplay = document.getElementById("verseDisplay");
+            let activeMarker = null;
+
             books[bookName].path.forEach(point => {
                 const marker = document.createElement("div");
                 marker.className = "chapter-marker";
@@ -517,6 +533,18 @@ window.addEventListener("click", (e) => {
                 marker.style.left = `${Math.min(Math.max(point.x - 12, 0), mapWidth - 24)}px`;
                 marker.style.top = `${Math.min(Math.max(point.y - 12, 0), mapHeight - 24)}px`;
                 map.appendChild(marker);
+
+                marker.addEventListener("click", () => {
+                    const verse = books[bookName].verses?.[point.chapter] || "이 장에 대한 말씀 데이터가 없습니다.";
+                    if (activeMarker === marker) {
+                        verseDisplay.style.display = "none";
+                        activeMarker = null;
+                    } else {
+                        verseDisplay.textContent = verse;
+                        verseDisplay.style.display = "block";
+                        activeMarker = marker;
+                    }
+                });
             });
         }
 
@@ -757,5 +785,6 @@ window.addEventListener("click", (e) => {
         }
         init();
     </script>
+    <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92a9287dbd2953af',t:'MTc0MzY4OTUxNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
